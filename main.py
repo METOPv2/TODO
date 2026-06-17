@@ -1,3 +1,5 @@
+from datetime import datetime
+
 tasks = []
 
 
@@ -14,6 +16,7 @@ def addTask() -> None:
         "id": len(tasks) + 1,
         "content": task,
         "completed": False,
+        "when_created": datetime.now(),
     }
 
     tasks += [task_data]
@@ -29,13 +32,42 @@ def listTasks() -> None:
     for task in tasks:
         i += 1
         print(
-            f"{i}. ID: {task["id"]}. Content: {task["content"]}. Completed: {"✅" if task["completed"] else "❌"}"
+            f"{i}. ID: {task["id"]}. Content: {task["content"]}. When created: {task["when_created"]}. Completed: {"✅" if task["completed"] else "❌"}"
         )
 
     if i == 0:
         print("No tasks :(")
 
     print("\nFinished successfully!")
+    input("Press any key to continue...")
+    print("\n" * 2)
+
+
+def sortTasks() -> None:
+    sort_type = input(
+        "\nHow do you want to sort tasks?\n1. Newest\n2. Oldest\n3. Finished\n4. Unfinished\n>"
+    )
+
+    for i in range(len(tasks) - 1):
+        for j in range(i, len(tasks)):
+            if tasks[i] == tasks[j]:
+                continue
+            else:
+                match (sort_type):
+                    case "1":
+                        if tasks[i]["when_created"] > tasks[j]["when_created"]:
+                            tasks[i], tasks[j] = tasks[j], tasks[i]
+                    case "2":
+                        if tasks[i]["when_created"] < tasks[j]["when_created"]:
+                            tasks[i], tasks[j] = tasks[j], tasks[i]
+                    case "3":
+                        if not tasks[i]["finished"] and tasks[j]["finished"]:
+                            tasks[i], tasks[j] = tasks[j], tasks[i]
+                    case "4":
+                        if tasks[i]["finished"] and not tasks[j]["finished"]:
+                            tasks[i], tasks[j] = tasks[j], tasks[i]
+
+    print("\nSortting is finished!")
     input("Press any key to continue...")
     print("\n" * 2)
 
@@ -102,7 +134,7 @@ def main() -> str | None:
 
     print("Operations: ")
     choice = input(
-        "1. Add task\n2. List tasks\n3. Complete task\n4. Remove task\n5. Exit\n> "
+        "1. Add task\n2. List tasks\n3. Sort tasks\n4. Complete task\n5. Remove task\n6. Exit\n> "
     )
 
     match choice:
@@ -111,10 +143,12 @@ def main() -> str | None:
         case "2":
             listTasks()
         case "3":
-            completeTask()
+            sortTasks()
         case "4":
-            removeTaskById()
+            completeTask()
         case "5":
+            removeTaskById()
+        case "6":
             return "Cancelled"
 
 
