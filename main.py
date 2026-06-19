@@ -72,7 +72,7 @@ def sortTasks() -> None:
     print("\n" * 2)
 
 
-def completeTask() -> None:
+def markTaskAsCompleted() -> None:
     id = int(input("Enter task ID: "))
 
     if not id:
@@ -90,7 +90,7 @@ def completeTask() -> None:
 
     match changed:
         case True:
-            print("Successfully changed a task!")
+            print("Successfully marked the task as completed!")
         case False:
             print("Failed to find a task.")
 
@@ -134,7 +134,7 @@ def main() -> str | None:
 
     print("Operations: ")
     choice = input(
-        "1. Add task\n2. List tasks\n3. Sort tasks\n4. Complete task\n5. Remove task\n6. Exit\n> "
+        "1. Add task\n2. List tasks\n3. Sort tasks\n4. Mark task as completed\n5. Remove task\n6. Exit\n> "
     )
 
     match choice:
@@ -145,7 +145,7 @@ def main() -> str | None:
         case "3":
             sortTasks()
         case "4":
-            completeTask()
+            markTaskAsCompleted()
         case "5":
             removeTaskById()
         case "6":
