@@ -158,6 +158,40 @@ class TODOApp(ctk.CTk):
                 self._refresh()
                 return
 
+    def edit_task(self, task_id):
+        task = next((t for t in self.tasks if t["id"] == task_id), None)
+        if not task:
+            return
+
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(f"Edit Task #{task_id}")
+        dialog.geometry("460x140")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        dialog.focus()
+
+        ctk.CTkLabel(dialog, text="Edit task:", font=ctk.CTkFont(size=13)).pack(padx=16, pady=(16, 4), anchor="w")
+
+        entry = ctk.CTkEntry(dialog, height=38, font=ctk.CTkFont(size=14))
+        entry.pack(fill="x", padx=16, pady=(0, 10))
+        entry.insert(0, task["content"])
+        entry.focus()
+        entry.select_range(0, "end")
+
+        def save():
+            new_text = entry.get().strip()
+            if not new_text:
+                return
+            task["content"] = new_text
+            self._save_tasks()
+            self._status(f"Task #{task_id} updated.")
+            self._refresh()
+            dialog.destroy()
+
+        entry.bind("<Return>", lambda _: save())
+        entry.bind("<Escape>", lambda _: dialog.destroy())
+        ctk.CTkButton(dialog, text="Save", height=34, command=save).pack(padx=16, fill="x")
+
     # --- UI helpers ---
 
     def _status(self, msg, error=False):
@@ -202,6 +236,10 @@ class TODOApp(ctk.CTk):
         ).pack(side="left", padx=(0, 8))
 
         tid = task["id"]
+        ctk.CTkButton(
+            row, text="✏", width=36, height=28, fg_color="#1a4a7a", hover_color="#133558",
+            command=lambda t=tid: self.edit_task(t)
+        ).pack(side="left", padx=2)
         ctk.CTkButton(
             row, text="✅", width=36, height=28, fg_color="#1a6e1a", hover_color="#145214",
             command=lambda t=tid: self.mark_completed(t)
