@@ -1,193 +1,221 @@
+import customtkinter as ctk
 from datetime import datetime
-
-tasks = []
-next_id = 1
-
-
-def addTask() -> None:
-    global next_id
-
-    task = input("\nEnter a task: ")
-
-    if task == "":
-        print("\nFAILURE: cannot add an empty task.")
-        return
-
-    task_data = {
-        "id": next_id,
-        "content": task,
-        "completed": False,
-        "when_created": datetime.now(),
-    }
-
-    tasks.append(task_data)
-    next_id += 1
-
-    print("\nJust added a task!")
-    input("Press any key to continue...")
-    print("\n" * 2)
+import json
+import os
+import sys
 
 
-def listTasks() -> None:
-    print("\nTasks\n")
+def _tasks_file() -> str:
+    if getattr(sys, "frozen", False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "tasks.json")
 
-    count = 0
-    for task in tasks:
-        count += 1
-        print(
-            f"{count}. ID: {task["id"]}. Content: {task["content"]}. When created: {task["when_created"]}. Completed: {"✅" if task["completed"] else "❌"}"
+
+class TODOApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+
+        self.title("TODO List")
+        self.geometry("820x580")
+        self.resizable(True, True)
+
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
+
+        self.tasks, self.next_id = self._load_tasks()
+
+        self._build_ui()
+
+    def _build_ui(self):
+        ctk.CTkLabel(self, text="~~~ TODO APP ~~~", font=ctk.CTkFont(size=24, weight="bold")).pack(pady=(20, 10))
+
+        # Input row
+        input_frame = ctk.CTkFrame(self, fg_color="transparent")
+        input_frame.pack(fill="x", padx=20, pady=(0, 8))
+
+        self.task_entry = ctk.CTkEntry(
+            input_frame, placeholder_text="Enter a task...", height=40, font=ctk.CTkFont(size=14)
         )
+        self.task_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.task_entry.bind("<Return>", lambda _: self.add_task())
 
-    if count == 0:
-        print("No tasks :(")
+        ctk.CTkButton(input_frame, text="Add Task", width=110, height=40, command=self.add_task).pack(side="right")
 
-    print("\nFinished successfully!")
-    input("Press any key to continue...")
-    print("\n" * 2)
+        # Sort row
+        sort_frame = ctk.CTkFrame(self, fg_color="transparent")
+        sort_frame.pack(fill="x", padx=20, pady=(0, 4))
 
+        ctk.CTkLabel(sort_frame, text="Sort:", font=ctk.CTkFont(size=13)).pack(side="left", padx=(0, 8))
+        for label, key in [("Newest", "newest"), ("Oldest", "oldest"), ("Completed", "completed"), ("On-going", "ongoing")]:
+            ctk.CTkButton(
+                sort_frame, text=label, width=95, height=30,
+                command=lambda k=key: self.sort_tasks(k)
+            ).pack(side="left", padx=3)
 
-def sortTasks() -> None:
-    sort_type = input(
-        "\nHow do you want to sort tasks?\n1. Newest\n2. Oldest\n3. Completed\n4. On-going\n>"
-    )
+        # Status bar
+        self.status_label = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=12), text_color="gray")
+        self.status_label.pack(pady=(2, 4))
 
-    for i in range(len(tasks) - 1):
-        for j in range(i, len(tasks)):
-            if tasks[i] == tasks[j]:
-                continue
-            else:
-                match (sort_type):
-                    case "1":
-                        if tasks[i]["when_created"] < tasks[j]["when_created"]:
-                            tasks[i], tasks[j] = tasks[j], tasks[i]
-                    case "2":
-                        if tasks[i]["when_created"] > tasks[j]["when_created"]:
-                            tasks[i], tasks[j] = tasks[j], tasks[i]
-                    case "3":
-                        if not tasks[i]["completed"] and tasks[j]["completed"]:
-                            tasks[i], tasks[j] = tasks[j], tasks[i]
-                    case "4":
-                        if tasks[i]["completed"] and not tasks[j]["completed"]:
-                            tasks[i], tasks[j] = tasks[j], tasks[i]
+        # Task list
+        self.task_frame = ctk.CTkScrollableFrame(self, label_text="Tasks")
+        self.task_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
-    print("\nSorting is finished!")
-    input("Press any key to continue...")
-    print("\n" * 2)
+        self._refresh()
 
+    # --- Persistence ---
 
-def markTaskAsCompleted() -> None:
-    try:
-        id = int(input("Enter task ID: "))
-    except ValueError:
-        print("FAILURE: id must be a number.")
-        input("Press any key to continue...")
-        print("\n" * 2)
-        return
+    def _load_tasks(self):
+        path = _tasks_file()
+        if not os.path.exists(path):
+            return [], 1
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            tasks = [
+                {**t, "when_created": datetime.fromisoformat(t["when_created"])}
+                for t in data
+            ]
+            next_id = max((t["id"] for t in tasks), default=0) + 1
+            return tasks, next_id
+        except Exception:
+            return [], 1
 
-    changed = False
-    for task in tasks:
-        if task["id"] == id:
-            task["completed"] = True
-            changed = True
-            break
+    def _save_tasks(self):
+        path = _tasks_file()
+        data = [
+            {**t, "when_created": t["when_created"].isoformat()}
+            for t in self.tasks
+        ]
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
 
-    match changed:
-        case True:
-            print("Successfully marked the task as completed!")
-        case False:
-            print("Failed to find a task.")
+    # --- Actions ---
 
-    input("Press any key to continue...")
-    print("\n" * 2)
+    def add_task(self):
+        content = self.task_entry.get().strip()
+        if not content:
+            self._status("Cannot add an empty task.", error=True)
+            return
+        self.tasks.append({
+            "id": self.next_id,
+            "content": content,
+            "completed": False,
+            "when_created": datetime.now(),
+        })
+        self.next_id += 1
+        self.task_entry.delete(0, "end")
+        self._save_tasks()
+        self._status("Task added!")
+        self._refresh()
 
+    def sort_tasks(self, key):
+        n = len(self.tasks)
+        for i in range(n - 1):
+            for j in range(i + 1, n):
+                a, b = self.tasks[i], self.tasks[j]
+                swap = False
+                match key:
+                    case "newest":
+                        swap = a["when_created"] < b["when_created"]
+                    case "oldest":
+                        swap = a["when_created"] > b["when_created"]
+                    case "completed":
+                        swap = not a["completed"] and b["completed"]
+                    case "ongoing":
+                        swap = a["completed"] and not b["completed"]
+                if swap:
+                    self.tasks[i], self.tasks[j] = b, a
+        self._save_tasks()
+        self._status(f"Sorted by {key}.")
+        self._refresh()
 
-def markTaskAsOnGoing() -> None:
-    try:
-        id = int(input("Enter task ID: "))
-    except ValueError:
-        print("FAILURE: id must be a number.")
-        input("Press any key to continue...")
-        print("\n" * 2)
-        return
+    def mark_completed(self, task_id):
+        for t in self.tasks:
+            if t["id"] == task_id:
+                t["completed"] = True
+                break
+        self._save_tasks()
+        self._status(f"Task #{task_id} marked as completed.")
+        self._refresh()
 
-    changed = False
-    for task in tasks:
-        if task["id"] == id:
-            task["completed"] = False
-            changed = True
-            break
+    def mark_ongoing(self, task_id):
+        for t in self.tasks:
+            if t["id"] == task_id:
+                t["completed"] = False
+                break
+        self._save_tasks()
+        self._status(f"Task #{task_id} marked as on-going.")
+        self._refresh()
 
-    match changed:
-        case True:
-            print("Successfully marked the task as on-going!")
-        case False:
-            print("Failed to find a task.")
+    def remove_task(self, task_id):
+        for i, t in enumerate(self.tasks):
+            if t["id"] == task_id:
+                del self.tasks[i]
+                self._save_tasks()
+                self._status(f"Task #{task_id} deleted.")
+                self._refresh()
+                return
 
-    input("Press any key to continue...")
-    print("\n" * 2)
+    # --- UI helpers ---
 
+    def _status(self, msg, error=False):
+        self.status_label.configure(text=msg, text_color="red" if error else "gray")
 
-def removeTaskById() -> None:
-    try:
-        id = int(input("Enter ID: "))
-    except ValueError:
-        print("FAILURE: id must be a number.")
-        input("Press any key to continue...")
-        print("\n" * 2)
-        return
+    def _refresh(self):
+        for w in self.task_frame.winfo_children():
+            w.destroy()
 
-    i = 0
-    found = False
-    for task in tasks:
-        if task["id"] == id:
-            found = True
+        if not self.tasks:
+            ctk.CTkLabel(
+                self.task_frame, text="No tasks :)", font=ctk.CTkFont(size=14), text_color="gray"
+            ).pack(pady=20)
+            return
 
-            # deleting a task
-            del tasks[i]
+        for task in self.tasks:
+            self._render_row(task)
 
-            break
-        i += 1
+    def _render_row(self, task):
+        row = ctk.CTkFrame(self.task_frame)
+        row.pack(fill="x", pady=3, padx=2)
 
-    match found:
-        case True:
-            print("Successfully deleted a task!")
-        case False:
-            print("Failed to find a task.")
+        ctk.CTkLabel(row, text="✅" if task["completed"] else "❌", font=ctk.CTkFont(size=15), width=32).pack(
+            side="left", padx=(10, 4)
+        )
+        ctk.CTkLabel(row, text=f"#{task['id']}", font=ctk.CTkFont(size=12), text_color="gray", width=36).pack(
+            side="left", padx=(0, 6)
+        )
+        ctk.CTkLabel(
+            row,
+            text=task["content"],
+            font=ctk.CTkFont(size=14),
+            anchor="w",
+            text_color="gray" if task["completed"] else "white",
+        ).pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-    input("Press any key to continue...")
-    print("\n" * 2)
+        ctk.CTkLabel(
+            row,
+            text=task["when_created"].strftime("%Y-%m-%d %H:%M"),
+            font=ctk.CTkFont(size=11),
+            text_color="gray",
+        ).pack(side="left", padx=(0, 8))
 
-
-def main() -> str | None:
-    print("\n~~~ TODO APP ~~~\n")
-
-    print("Operations: ")
-    choice = input(
-        "1. Add task\n2. List tasks\n3. Sort tasks\n4. Mark task as completed\n5. Mark task as on-going\n6. Remove task\n7. Exit\n> "
-    )
-
-    match choice:
-        case "1":
-            addTask()
-        case "2":
-            listTasks()
-        case "3":
-            sortTasks()
-        case "4":
-            markTaskAsCompleted()
-        case "5":
-            markTaskAsOnGoing()
-        case "6":
-            removeTaskById()
-        case "7":
-            return "Cancelled"
+        tid = task["id"]
+        ctk.CTkButton(
+            row, text="✅", width=36, height=28, fg_color="#1a6e1a", hover_color="#145214",
+            command=lambda t=tid: self.mark_completed(t)
+        ).pack(side="left", padx=2)
+        ctk.CTkButton(
+            row, text="↩", width=36, height=28, fg_color="#555", hover_color="#333",
+            command=lambda t=tid: self.mark_ongoing(t)
+        ).pack(side="left", padx=2)
+        ctk.CTkButton(
+            row, text="🗑", width=36, height=28, fg_color="#7a0000", hover_color="#550000",
+            command=lambda t=tid: self.remove_task(t)
+        ).pack(side="left", padx=(2, 10))
 
 
 if __name__ == "__main__":
-    while True:
-        result = main()
-
-        match result:
-            case "Cancelled":
-                print("\nProgram is closed.")
-                break
+    app = TODOApp()
+    app.mainloop()
